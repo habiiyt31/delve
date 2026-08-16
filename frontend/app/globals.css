@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 text-parchment antialiased;
+}
+
+::selection {
+  @apply bg-ember-500/30 text-white;
+}
+
+:focus-visible {
+  @apply outline-none ring-2 ring-ember-400/70 ring-offset-2 ring-offset-ink-950;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- Panels ---------- */
+.panel {
+  @apply relative rounded-lg border border-ink-700/70 bg-ink-900/70 p-5 sm:p-6;
+}
+
+.panel-row {
+  @apply flex items-center justify-between gap-3 border-b border-ink-700/50 py-3 last:border-b-0;
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-md bg-ember-500 px-4 py-2.5
+    font-display text-sm font-medium tracking-wide text-ink-950 transition
+    hover:bg-ember-400 disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-md border border-ink-600
+    bg-transparent px-4 py-2.5 font-display text-sm font-medium tracking-wide text-parchment
+    transition hover:border-ember-500/60 hover:text-ember-300
+    disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+/* ---------- Form fields ---------- */
+.field-label {
+  @apply mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-ink-600;
+}
+
+.field-input {
+  @apply w-full rounded-md border border-ink-700 bg-ink-800/60 px-3.5 py-2.5
+    font-mono text-sm text-parchment placeholder:text-ink-600 outline-none transition
+    focus:border-ember-500/60;
+}
+
+.field-hint {
+  @apply mt-1.5 text-xs text-ink-600;
+}
+
+/* ---------- Numeric / mono figures ---------- */
+.figure {
+  @apply font-mono tabular-nums;
+}
+
+/* ---------- Status pills ---------- */
+.pill {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px]
+    uppercase tracking-wide;
+}
+
+/* ---------- Chip buttons (action presets) ---------- */
+.chip-button {
+  @apply inline-flex items-center rounded-full border border-rune-violet/30 bg-rune-violet/10
+    px-3 py-1.5 text-left text-xs text-rune-violet-light transition
+    hover:border-rune-violet/60 hover:bg-rune-violet/20 disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+/* ---------- Empty states ---------- */
+.void-state {
+  @apply panel flex flex-col items-center gap-2 py-10 text-center text-sm text-ink-600;
+}

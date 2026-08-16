@@ -1,0 +1,12 @@
+{
+  "name": "delve",
+  "version": "1.0.0",
+  "description": "Delve — an onchain dungeon crawl adjudicated by GenLayer validator consensus",
+  "private": true,
+  "scripts": {
+    "network": "genlayer network",
+    "lint": "genvm-lint check contracts/delve_dungeon.py",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build"
+  }
+}
