@@ -56,12 +56,30 @@ export default function DelveDetailPage() {
     if (!actionText.trim()) return;
     setActing(true);
     setError(null);
+    const turnBefore = game?.turn;
     try {
       await takeAction(address, gameId, actionText.trim());
       setActionText("");
       await load();
     } catch (err: any) {
-      setError(err?.message ?? "That action failed.");
+      const message = err?.message ?? "That action failed.";
+      // "Still waiting on validator consensus" means OUR wait window
+      // gave up client-side -- it does NOT mean the write failed.
+      // GenLayer consensus can take an extra validator rotation longer
+      // than usual, and by the time we're in this catch block the turn
+      // has often already landed. Check the real chain state before
+      // alarming the player with an error that isn't actually true.
+      if (message.includes("Still waiting on validator consensus")) {
+        const fresh = await getGame(gameId).catch(() => null);
+        if (fresh && turnBefore !== undefined && fresh.turn > turnBefore) {
+          setGame(fresh);
+          setActionText("");
+        } else {
+          setError(message);
+        }
+      } else {
+        setError(message);
+      }
     } finally {
       setActing(false);
     }

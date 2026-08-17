@@ -18,15 +18,23 @@ export default function NewDelvePage() {
     if (!address) return connect();
     setBusy(true);
     setError(null);
+    let idBeforeCreate: number | null = null;
     try {
-      const idBeforeCreate = await getGameCount();
+      idBeforeCreate = await getGameCount();
       await startGame(address, heroName.trim());
       router.push(`/delve/${idBeforeCreate}`);
     } catch (err: any) {
-      setError(
-        (err?.message ?? "Couldn't start the delve.") +
-          " Check /delves in a moment — it may have gone through anyway."
-      );
+      const message = err?.message ?? "Couldn't start the delve.";
+      // Same reasoning as the in-game action handler: this specific
+      // message means our wait window gave up, not that the write
+      // failed. idBeforeCreate was captured before the write, so it's
+      // still the correct id if the delve actually went through -- send
+      // the hero there instead of stranding them on this form.
+      if (idBeforeCreate !== null && message.includes("Still waiting on validator consensus")) {
+        router.push(`/delve/${idBeforeCreate}`);
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }

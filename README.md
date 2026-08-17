@@ -179,6 +179,19 @@ correctness gate.
   contracts, Delve has no economic layer — there's nothing to
   underwrite or reserve, so `deposit`/`withdraw`/pool accounting simply
   don't apply here and aren't included.
+- **`ACCEPTED`, not `FINALIZED`, is the write-wait target.** Per
+  [GenLayer's own docs for the browser-wallet
+  flow](https://docs.genlayer.com/developers/decentralized-applications/writing-data#using-a-browser-wallet-metamask),
+  writes wait for `TransactionStatus.ACCEPTED` — the point in the
+  transaction lifecycle (`Pending → Proposing → Committing → Revealing
+  → Accepted → Finalized`) where validator consensus has already been
+  reached. Waiting for full `FINALIZED` adds an extra confirmation-depth
+  guarantee this game doesn't need, and was causing turns to report a
+  client-side timeout even after they'd already gone through.
+- **`client.connect()` before every write**, also per the same docs
+  page, with a fallback to a manual `wallet_switchEthereumChain` /
+  `wallet_addEthereumChain` flow if `connect()` throws (some non-MetaMask
+  injected wallets don't support whatever it relies on internally).
 - **Fallback on no-consensus, never a guess.** If
   `gl.vm.run_nondet_unsafe` can't reach consensus (or every call
   fails), `take_action` falls back to a neutral no-op turn (same room,

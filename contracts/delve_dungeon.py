@@ -120,6 +120,26 @@ class Game:
 # ── Pure helpers (no genlayer imports needed) ──────────────────────────
 
 
+def _coerce_llm_json(value) -> dict:
+    """
+    Per the official SDK signature, gl.nondet.exec_prompt(..., response_format="json")
+    already returns dict[str, Any] -- it must NOT be passed to json.loads()
+    (doing so throws "the JSON object must be str, bytes or bytearray, not
+    dict"). This still accepts a raw string as a fallback in case a given
+    model/provider ever returns one anyway, so the contract degrades to an
+    empty dict instead of crashing either way.
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(value)
+        except Exception:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
 def _validate_turn_payload(d: dict, valid_moves: list) -> bool:
     """
     Schema + business-rule check for a leader/validator turn response.
@@ -256,7 +276,7 @@ Respond only as JSON, no markdown fences, exactly:
 {{"narrative": "...", "next_room": "...", "hp_delta": <integer>, "item_found": "..."}}
 """
             raw = gl.nondet.exec_prompt(prompt, response_format="json")
-            data = json.loads(raw)
+            data = _coerce_llm_json(raw)
             return json.dumps(
                 {
                     "narrative": str(data.get("narrative", ""))[:MAX_NARRATIVE_CHARS],

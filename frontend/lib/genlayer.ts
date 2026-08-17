@@ -64,25 +64,31 @@ export function getWriteClient(walletAddress: string) {
 /**
  * Ensures the connected wallet is on the configured GenLayer network.
  *
- * IMPORTANT: this intentionally does NOT call genlayer-js's built-in
- * `client.connect()`. That helper unconditionally calls the MetaMask
- * Snaps RPC methods (`wallet_getSnaps` / `wallet_requestSnaps`) to
- * install the GenLayer wallet-plugin snap -- something only real
- * MetaMask supports. Any other EIP-1193 wallet (Rabby, OKX Wallet,
- * Coinbase Wallet, Brave Wallet, etc.) throws "method [wallet_getSnaps]
- * doesn't has corresponding handler" the moment connect() runs, which
- * breaks every write/sign flow for those users.
+ * Per GenLayer's own docs for the browser-wallet flow
+ * (docs.genlayer.com/developers/decentralized-applications/writing-data
+ * → "Using a Browser Wallet (MetaMask)"), `client.connect(network)` is
+ * the officially documented way to do this and must be called before
+ * writing. We try that first.
  *
- * We don't need the snap here: `getWriteClient` already binds
- * `account: walletAddress` + `provider: window.ethereum`, which is the
- * documented "MetaMask handles signing" pattern -- genlayer-js proxies
- * eth_sendTransaction/eth_signTransaction straight to the injected
- * provider. Network correctness only requires the standard
- * EIP-3085/3326 methods below, which every injected wallet implements.
+ * As a safety net, if `connect()` throws -- e.g. because it depends on
+ * a MetaMask-only Snaps RPC method (`wallet_getSnaps` /
+ * `wallet_requestSnaps`) that other EIP-1193 wallets like Rabby, OKX
+ * Wallet, or Coinbase Wallet don't implement -- we fall back to the
+ * plain EIP-3085/3326 switch/add-chain calls below, which every
+ * injected wallet supports. This keeps the officially documented path
+ * for real MetaMask users while not hard-breaking everyone else.
  */
 export async function ensureCorrectNetwork(walletAddress: string) {
   const client = getWriteClient(walletAddress);
   const chain = resolveChain();
+
+  try {
+    await client.connect(NETWORK as any);
+    return client;
+  } catch {
+    // Fall through to the manual flow below.
+  }
+
   const provider = window.ethereum;
   const expectedChainIdHex = `0x${chain.id.toString(16)}`;
 
