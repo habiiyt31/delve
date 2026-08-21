@@ -135,12 +135,36 @@ does is leave `next_game_id` at zero and never populate `upgraders`.
 
 ## Testing
 
-There's no separate test suite in this repo — verification happens in
-two places:
+Verification happens in three places:
 
 **`genvm-lint check contracts/delve_dungeon.py`** before every deploy.
 Since the contract can't be patched afterward, this is the primary
-correctness gate.
+static-analysis gate.
+
+**`pytest tests/direct -v`** (or `npm run test`) runs the direct-mode
+contract test suite — fast, in-memory tests using the official
+[GenLayer Testing Suite](https://docs.genlayer.com/api-references/genlayer-test)
+(`genlayer-test`, pinned in `requirements.txt`). No Docker or Studio
+required:
+
+```bash
+pip install -r requirements.txt
+pytest tests/direct -v
+```
+
+- `tests/direct/test_authorization.py` — only `game.player` (the
+  wallet that called `start_game`) can call `take_action` on that
+  game; every other sender is rejected, including against an already-
+  ended game and under multiple players each holding their own delve.
+- `tests/direct/test_consensus.py` — `validator_fn`'s agreement rules,
+  including that `item_found` (which gates an inventory mutation) now
+  requires the validator's own independent replay to agree with the
+  leader, the same way `next_room` and `hp_delta` already did.
+- `tests/direct/test_concurrent_actions.py` — interleaved
+  `take_action` calls across multiple games (different players, or the
+  same player running more than one delve) never leak state between
+  games, and the authorization check holds up under that interleaving
+  rather than only in isolation.
 
 **Manual QA against the deployed app**, in this order:
 
@@ -171,6 +195,15 @@ correctness gate.
 - **`_validate_turn_payload` enforces business rules, not just types.**
   See "Validators enforce consistency" above and the function itself in
   `contracts/delve_dungeon.py`.
+- **`take_action` is owner-only, not permissionless.** Only the wallet
+  that called `start_game` (`game.player`) can advance that game; every
+  other sender is rejected via `gl.message.sender_address` before any
+  nondeterministic work runs — see "Ownership" above.
+- **Every state-changing field goes through consensus, including
+  rewards.** `item_found` is compared between the leader's payload and
+  each validator's own independent replay (case/whitespace-insensitive,
+  since it's LLM-authored text), not just schema-checked — an inventory
+  reward is never written on the leader's word alone.
 - **CSV-encoded lists, not list-typed dataclass fields.** `inventory`
   and `visited` are stored as comma-joined strings and split/joined in
   the contract and in `frontend/lib/contract.ts` — see "Scalar-only

@@ -26,7 +26,19 @@ VALIDATOR DESIGN (business-rule consistency, not just field matching):
   inconsistent with the rules (next_room outside the current room's real
   exits, hp_delta outside the allowed range, an empty narrative). See
   _validate_turn_payload below, which both the leader's and my own replay
-  of leader_fn are run through before anything is compared.
+  of leader_fn are run through before anything is compared. Every field
+  that changes state on acceptance -- next_room (exact match), hp_delta
+  (tolerance band), and item_found (case/whitespace-insensitive exact
+  match) -- is compared between the leader's payload and my own replay.
+  No state-changing field is ever taken from the leader unchecked; a
+  reward nobody else's replay agreed on is never written to inventory.
+
+OWNERSHIP:
+  take_action requires gl.message.sender_address to equal the game's
+  player (the address that called start_game). This mirrors how player
+  is captured in the first place -- gl.message.sender_address -- so the
+  check is symmetric with how the game was created. No other wallet can
+  advance, or otherwise mutate, someone else's delve.
 
 CLOSURE SAFETY:
   Every value leader_fn/validator_fn read is copied to a plain local
@@ -235,14 +247,14 @@ class Delve(gl.Contract):
     @gl.public.write
     def take_action(self, game_id: u32, action_text: str) -> str:
         """
-        Anyone holding the game_id can call this (mirrors this project's
-        other adjudication contracts, which are permissionless on their
-        resolve step too) -- the interesting trust boundary here is
-        validator consensus on the turn's outcome, not who's allowed to
-        advance the story. Returns the resulting status: "active" or
-        "ended".
+        Only the wallet that started this delve (game.player, captured
+        from gl.message.sender_address in start_game) may call this --
+        every other sender is rejected before any nondeterministic work
+        happens. Returns the resulting status: "active" or "ended".
         """
         game = self.games[game_id]
+        if game.player != gl.message.sender_address:
+            raise gl.vm.UserError("only the delver who started this game can act on it")
         if str(game.status) != "active":
             raise gl.vm.UserError("this delve has already ended")
 
@@ -302,6 +314,15 @@ Respond only as JSON, no markdown fences, exactly:
                 return False
 
             if mine["next_room"] != leader["next_room"]:
+                return False
+            # item_found gates an inventory mutation just like next_room
+            # gates a room change -- it must be independently agreed on,
+            # not taken from the leader on trust. Compared case/whitespace
+            # -insensitively (unlike next_room) since it's LLM-authored
+            # short text rather than a value drawn from a fixed set.
+            mine_item = str(mine["item_found"]).strip().lower()
+            leader_item = str(leader["item_found"]).strip().lower()
+            if mine_item != leader_item:
                 return False
             return abs(int(mine["hp_delta"]) - int(leader["hp_delta"])) <= HP_DELTA_TOLERANCE
 
